@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FakeShield — AI Misinformation Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── TOKENS ─────────────────────────────────────────── */
+:root{
+  --bg:#09090f;
+  --bg2:#0f0f18;
+  --bg3:#14141f;
+  --surface:rgba(255,255,255,0.04);
+  --surface2:rgba(255,255,255,0.07);
+  --glass:rgba(255,255,255,0.06);
+  --glass-border:rgba(255,255,255,0.10);
+  --text:#f1f0ff;
+  --text2:#9896b8;
+  --text3:#4a4868;
+  --p:#a78bfa;
+  --p2:#7c3aed;
+  --p3:#4f1fa0;
+  --p-glow:rgba(167,139,250,0.18);
+  --p-glow2:rgba(124,58,237,0.10);
+  --green:#34d399;
+  --green-s:rgba(52,211,153,0.12);
+  --red:#f87171;
+  --red-s:rgba(248,113,113,0.12);
+  --amber:#fbbf24;
+  --amber-s:rgba(251,191,36,0.12);
+  --gray-s:rgba(148,146,184,0.10);
+  --r:16px; --r-sm:10px; --r-lg:24px;
+  --nav-h:66px;
+}
+[data-theme="light"]{
+  --bg:#fafaff;
+  --bg2:#f2f2fc;
+  --bg3:#e8e8f8;
+  --surface:rgba(0,0,0,0.03);
+  --surface2:rgba(0,0,0,0.05);
+  --glass:rgba(255,255,255,0.70);
+  --glass-border:rgba(100,80,200,0.14);
+  --text:#0c0b1a;
+  --text2:#5a587a;
+  --text3:#a09ec0;
+  --p:#7c3aed;
+  --p2:#5b21b6;
+  --p3:#ddd6fe;
+  --p-glow:rgba(124,58,237,0.10);
+  --p-glow2:rgba(124,58,237,0.06);
+  --green:#059669;
+  --green-s:rgba(5,150,105,0.08);
+  --red:#dc2626;
+  --red-s:rgba(220,38,38,0.08);
+  --amber:#b45309;
+  --amber-s:rgba(180,83,9,0.08);
+  --gray-s:rgba(74,72,120,0.06);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Inter',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  overflow-x:hidden;
+  transition:background .35s,color .35s;
+}
+
+/* ── NOISE OVERLAY ─────────────────────────────────── */
+body::before{
+  content:'';
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px;
+}
+[data-theme="light"] body::before{opacity:.015;}
+
+/* ── NAV ───────────────────────────────────────────── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  height:var(--nav-h);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 clamp(1.25rem,4vw,3.5rem);
+  background:rgba(9,9,15,0.65);
+  backdrop-filter:blur(28px) saturate(160%);
+  -webkit-backdrop-filter:blur(28px) saturate(160%);
+  border-bottom:1px solid var(--glass-border);
+  transition:background .35s;
+}
+[data-theme="light"] nav{background:rgba(250,250,255,0.72);}
+
+.nav-brand{display:flex;align-items:center;gap:11px;text-decoration:none;}
+.nav-logo-wrap{position:relative;width:38px;height:38px;}
+.nav-logo-wrap svg{width:38px;height:38px;}
+.logo-ring{
+  position:absolute;inset:-3px;border-radius:14px;
+  background:conic-gradient(from 0deg,var(--p),var(--p2),transparent,var(--p));
+  animation:spin-ring 4s linear infinite;
+  mask:radial-gradient(transparent 60%,black 61%);
+  -webkit-mask:radial-gradient(transparent 60%,black 61%);
+}
+@keyframes spin-ring{to{transform:rotate(360deg);}}
+.nav-wordmark{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:700;font-size:18px;letter-spacing:-.02em;
+  color:var(--text);
+}
+.nav-wordmark span{
+  background:linear-gradient(90deg,var(--p),#c4b5fd);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.nav-right{display:flex;align-items:center;gap:10px;}
+.nav-pill{
+  font-size:11px;font-weight:500;letter-spacing:.06em;
+  padding:5px 12px;border-radius:20px;
+  border:1px solid var(--glass-border);
+  background:var(--surface);color:var(--text2);
+  text-transform:uppercase;
+}
+.nav-links{display:flex;align-items:center;gap:4px;}
+.nav-link{
+  font-size:13px;color:var(--text2);text-decoration:none;
+  padding:6px 12px;border-radius:8px;
+  transition:color .2s,background .2s;
+}
+.nav-link:hover{color:var(--text);background:var(--surface2);}
+.theme-toggle{
+  width:38px;height:38px;border-radius:10px;
+  border:1px solid var(--glass-border);
+  background:var(--surface);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:15px;transition:all .2s;color:var(--text2);
+}
+.theme-toggle:hover{background:var(--surface2);color:var(--text);}
+
+/* ── HERO ──────────────────────────────────────────── */
+.hero{
+  position:relative;
+  min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:calc(var(--nav-h) + 4rem) clamp(1.25rem,5vw,4rem) 5rem;
+  text-align:center;overflow:hidden;
+}
+.hero-orb1,.hero-orb2,.hero-orb3{
+  position:absolute;pointer-events:none;border-radius:50%;filter:blur(90px);
+}
+.hero-orb1{
+  width:600px;height:600px;
+  background:radial-gradient(circle,rgba(124,58,237,.18) 0%,transparent 70%);
+  top:-100px;left:50%;transform:translateX(-50%);
+  animation:orb-float1 8s ease-in-out infinite;
+}
+.hero-orb2{
+  width:400px;height:400px;
+  background:radial-gradient(circle,rgba(167,139,250,.12) 0%,transparent 70%);
+  bottom:0;right:-100px;
+  animation:orb-float2 10s ease-in-out infinite;
+}
+.hero-orb3{
+  width:300px;height:300px;
+  background:radial-gradient(circle,rgba(79,31,160,.15) 0%,transparent 70%);
+  bottom:80px;left:-60px;
+  animation:orb-float3 12s ease-in-out infinite;
+}
+@keyframes orb-float1{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(-30px);}}
+@keyframes orb-float2{0%,100%{transform:translateY(0);}50%{transform:translateY(-40px);}}
+@keyframes orb-float3{0%,100%{transform:translateY(0);}50%{transform:translateY(30px);}}
+
+.hero-grid-bg{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(167,139,250,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(167,139,250,.04) 1px,transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(ellipse 80% 70% at 50% 50%,black,transparent);
+}
+[data-theme="light"] .hero-grid-bg{
+  background-image:
+    linear-gradient(rgba(100,80,200,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(100,80,200,.05) 1px,transparent 1px);
+}
+.hero-content{position:relative;z-index:1;}
+
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:6px 14px 6px 8px;border-radius:20px;
+  background:var(--glass);border:1px solid var(--glass-border);
+  font-size:12px;color:var(--text2);
+  margin-bottom:2.2rem;
+  animation:slide-up .7s .1s both;
+}
+.badge-live{
+  display:flex;align-items:center;gap:5px;
+  background:var(--green-s);color:var(--green);
+  padding:3px 8px;border-radius:12px;font-size:11px;font-weight:500;
+}
+.badge-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-dot 2s infinite;}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
+
+h1{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:800;
+  font-size:clamp(2.8rem,7vw,5.8rem);
+  line-height:1.04;letter-spacing:-.03em;
+  margin-bottom:1.5rem;
+  animation:slide-up .7s .2s both;
+}
+.h1-gradient{
+  background:linear-gradient(135deg,#c4b5fd 0%,var(--p) 40%,#818cf8 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.hero-sub{
+  font-size:clamp(.95rem,1.8vw,1.15rem);font-weight:300;
+  color:var(--text2);max-width:520px;line-height:1.75;
+  margin:0 auto 2.8rem;
+  animation:slide-up .7s .3s both;
+}
+.hero-actions{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  flex-wrap:wrap;margin-bottom:4.5rem;
+  animation:slide-up .7s .4s both;
+}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:9px;
+  padding:14px 28px;border-radius:12px;
+  background:linear-gradient(135deg,var(--p2),var(--p));
+  color:#fff;font-size:14px;font-weight:500;
+  text-decoration:none;border:none;cursor:pointer;
+  font-family:'Inter',sans-serif;
+  box-shadow:0 0 32px var(--p-glow);
+  transition:all .25s;position:relative;overflow:hidden;
+}
+.btn-primary::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);
+  opacity:0;transition:opacity .2s;
+}
+.btn-primary:hover::before{opacity:1;}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 48px var(--p-glow);}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:13px 22px;border-radius:12px;
+  background:var(--glass);border:1px solid var(--glass-border);
+  color:var(--text2);font-size:14px;font-weight:400;
+  cursor:pointer;font-family:'Inter',sans-serif;
+  transition:all .2s;text-decoration:none;
+}
+.btn-ghost:hover{background:var(--surface2);color:var(--text);}
+
+.hero-stats{
+  display:flex;gap:clamp(2rem,5vw,4rem);justify-content:center;
+  animation:slide-up .7s .5s both;
+}
+.hstat{text-align:center;}
+.hstat-n{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-size:2.2rem;font-weight:700;color:var(--text);
+}
+.hstat-l{font-size:11.5px;color:var(--text2);margin-top:3px;letter-spacing:.01em;}
+.hstat-divider{width:1px;background:var(--glass-border);align-self:stretch;margin:4px 0;}
+
+/* ── DETECTOR SECTION ──────────────────────────────── */
+.section{
+  max-width:820px;margin:0 auto;
+  padding:clamp(5rem,9vw,8rem) clamp(1.25rem,4vw,2rem);
+  position:relative;z-index:1;
+}
+.section-eyebrow{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--p);margin-bottom:1rem;
+}
+.eyebrow-line{width:28px;height:1px;background:var(--p);}
+.section-title{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:700;font-size:clamp(1.9rem,4vw,2.9rem);
+  line-height:1.15;letter-spacing:-.02em;margin-bottom:.9rem;
+}
+.section-sub{font-size:.97rem;color:var(--text2);line-height:1.75;max-width:500px;margin-bottom:2.8rem;}
+
+/* DETECTOR CARD */
+.d-card{
+  background:var(--glass);
+  border:1px solid var(--glass-border);
+  border-radius:var(--r-lg);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  overflow:hidden;
+  box-shadow:0 0 80px var(--p-glow2),0 24px 48px rgba(0,0,0,.25);
+  transition:box-shadow .3s;
+}
+.d-card:hover{box-shadow:0 0 100px var(--p-glow),0 24px 60px rgba(0,0,0,.3);}
+.d-card-header{
+  padding:20px 24px;
+  border-bottom:1px solid var(--glass-border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.d-header-left{display:flex;align-items:center;gap:12px;}
+.d-header-icon{
+  width:40px;height:40px;border-radius:11px;
+  background:linear-gradient(135deg,var(--p2),var(--p));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 20px var(--p-glow);
+  flex-shrink:0;
+}
+.d-header-icon svg{width:20px;height:20px;}
+.d-header-title{font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:16px;}
+.d-header-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.d-model-badge{
+  font-size:11px;font-weight:500;padding:4px 10px;border-radius:20px;
+  background:var(--surface2);border:1px solid var(--glass-border);
+  color:var(--text3);
+}
+
+.d-body{padding:24px;}
+textarea#newsInput{
+  width:100%;min-height:120px;resize:vertical;
+  background:var(--bg2);border:1px solid var(--glass-border);
+  border-radius:var(--r);padding:16px;
+  font-size:14.5px;font-family:'Inter',sans-serif;
+  color:var(--text);line-height:1.65;outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+textarea#newsInput:focus{
+  border-color:var(--p);
+  box-shadow:0 0 0 3px var(--p-glow);
+}
+textarea#newsInput::placeholder{color:var(--text3);}
+
+.chips-label{font-size:11.5px;color:var(--text3);margin:14px 0 8px;letter-spacing:.03em;}
+.chips-row{display:flex;gap:7px;flex-wrap:wrap;}
+.chip{
+  font-size:12px;padding:5px 12px;border-radius:20px;
+  border:1px solid var(--glass-border);background:var(--surface);
+  color:var(--text2);cursor:pointer;
+  transition:all .18s;font-family:'Inter',sans-serif;
+}
+.chip:hover{background:var(--surface2);color:var(--text);border-color:var(--p);transform:translateY(-1px);}
+.d-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top:18px;padding-top:18px;
+  border-top:1px solid var(--glass-border);
+}
+.char-ct{font-size:12px;color:var(--text3);}
+.analyze-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:12px 26px;border-radius:10px;
+  background:linear-gradient(135deg,var(--p2),var(--p));
+  color:#fff;font-size:14px;font-weight:500;
+  border:none;cursor:pointer;font-family:'Inter',sans-serif;
+  box-shadow:0 0 24px var(--p-glow);
+  transition:all .22s;
+}
+.analyze-btn:hover{opacity:.9;transform:translateY(-2px);box-shadow:0 0 40px var(--p-glow);}
+.analyze-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none;}
+
+/* RESULT */
+#resultArea{display:none;}
+.r-divider{height:1px;background:var(--glass-border);margin:0 24px;}
+.r-loading{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:3rem;gap:16px;
+}
+.spinner{
+  width:34px;height:34px;
+  border:2px solid var(--glass-border);
+  border-top-color:var(--p);
+  border-radius:50%;animation:spin .75s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.r-loading-text{font-size:13.5px;color:var(--text2);}
+.r-loading-dots span{animation:blink 1.4s infinite;}
+.r-loading-dots span:nth-child(2){animation-delay:.2s;}
+.r-loading-dots span:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:0;}40%{opacity:1;}}
+
+.r-inner{padding:24px;animation:slide-up .45s both;}
+.verdict-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:20px;}
+.verdict-pill{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-size:14px;font-weight:700;
+  padding:6px 16px;border-radius:8px;letter-spacing:.01em;
+}
+.vp-real{background:var(--green-s);color:var(--green);}
+.vp-fake{background:var(--red-s);color:var(--red);}
+.vp-mis{background:var(--amber-s);color:var(--amber);}
+.vp-un{background:var(--gray-s);color:var(--text2);}
+.score-block{display:flex;flex-direction:column;gap:2px;}
+.score-label{font-size:11px;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;}
+.score-val{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-size:24px;font-weight:700;line-height:1;
+}
+.bar-wrap{margin-bottom:22px;}
+.bar-track{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:3px;transition:width 1.2s cubic-bezier(.16,1,.3,1);}
+.r-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+@media(max-width:540px){.r-grid{grid-template-columns:1fr;}}
+.r-box{
+  background:var(--surface);border:1px solid var(--glass-border);
+  border-radius:var(--r);padding:16px;
+}
+.r-box-label{
+  font-size:10.5px;font-weight:500;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--text3);margin-bottom:8px;
+}
+.r-box-text{font-size:13.5px;color:var(--text2);line-height:1.65;}
+.r-action-wrap{margin-top:4px;}
+.r-action{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:10px 16px;border-radius:9px;
+  font-size:13.5px;font-weight:500;
+}
+.ra-safe{background:var(--green-s);color:var(--green);}
+.ra-caution{background:var(--amber-s);color:var(--amber);}
+.ra-danger{background:var(--red-s);color:var(--red);}
+.ra-neutral{background:var(--gray-s);color:var(--text2);}
+
+/* ── HOW IT WORKS ──────────────────────────────────── */
+.hiw{
+  padding:clamp(5rem,9vw,8rem) clamp(1.25rem,4vw,2rem);
+  background:var(--bg2);position:relative;overflow:hidden;
+}
+.hiw::before{
+  content:'';position:absolute;top:-200px;right:-200px;
+  width:500px;height:500px;border-radius:50%;
+  background:radial-gradient(circle,rgba(124,58,237,.07) 0%,transparent 70%);
+  pointer-events:none;
+}
+.hiw-inner{max-width:820px;margin:0 auto;}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:14px;margin-top:2.8rem;}
+.step{
+  background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:var(--r-lg);padding:26px 22px;
+  position:relative;overflow:hidden;
+  transition:transform .25s,box-shadow .25s;
+  backdrop-filter:blur(10px);
+}
+.step:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.2);}
+.step-n{
+  position:absolute;top:14px;right:16px;
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-size:3.5rem;font-weight:800;
+  color:var(--glass-border);line-height:1;
+  transition:color .25s;
+}
+.step:hover .step-n{color:var(--p-glow);}
+.step-icon{
+  width:44px;height:44px;border-radius:12px;
+  background:linear-gradient(135deg,var(--p3),var(--surface2));
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:16px;font-size:20px;
+}
+.step-title{font-family:'Bricolage Grotesque',sans-serif;font-weight:600;font-size:15px;margin-bottom:8px;}
+.step-desc{font-size:13px;color:var(--text2);line-height:1.6;}
+
+/* ── SDG SECTION ───────────────────────────────────── */
+.sdg-section{
+  max-width:820px;margin:0 auto;
+  padding:clamp(5rem,9vw,8rem) clamp(1.25rem,4vw,2rem);
+  position:relative;z-index:1;
+}
+.sdg-card{
+  background:var(--glass);
+  border:1px solid rgba(167,139,250,.2);
+  border-radius:var(--r-lg);padding:clamp(2rem,5vw,3rem);
+  backdrop-filter:blur(20px);
+  display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;
+  box-shadow:0 0 60px var(--p-glow2);
+  position:relative;overflow:hidden;
+}
+.sdg-card::before{
+  content:'16';
+  position:absolute;right:-10px;bottom:-20px;
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-size:9rem;font-weight:800;
+  color:var(--glass-border);line-height:1;
+  pointer-events:none;letter-spacing:-.05em;
+}
+.sdg-icon{
+  width:72px;height:72px;border-radius:18px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--p2),var(--p));
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;box-shadow:0 0 30px var(--p-glow);
+}
+.sdg-body{flex:1;min-width:220px;}
+.sdg-body h3{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:700;font-size:1.35rem;margin-bottom:10px;letter-spacing:-.01em;
+}
+.sdg-body p{font-size:13.5px;color:var(--text2);line-height:1.75;max-width:520px;}
+.sdg-tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px;}
+.sdg-tag{
+  font-size:11px;font-weight:500;padding:4px 10px;border-radius:6px;
+  background:var(--surface);border:1px solid var(--glass-border);color:var(--text2);
+}
+
+/* ── STATS ─────────────────────────────────────────── */
+.stats-sec{background:var(--bg2);padding:clamp(4rem,7vw,6rem) clamp(1.25rem,4vw,2rem);}
+.stats-inner{max-width:820px;margin:0 auto;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:14px;margin-top:2.8rem;}
+.stat-card{
+  background:var(--glass);border:1px solid var(--glass-border);
+  border-radius:var(--r-lg);padding:26px 22px;
+  text-align:center;backdrop-filter:blur(10px);
+  transition:transform .25s;
+}
+.stat-card:hover{transform:translateY(-3px);}
+.stat-val{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-size:2.5rem;font-weight:800;margin-bottom:8px;line-height:1;
+}
+.sc-p{color:var(--p);}
+.sc-r{color:var(--red);}
+.sc-g{color:var(--green);}
+.sc-a{color:var(--amber);}
+.stat-desc{font-size:12.5px;color:var(--text2);line-height:1.55;}
+
+/* ── FOOTER ────────────────────────────────────────── */
+footer{
+  border-top:1px solid var(--glass-border);
+  padding:2rem clamp(1.25rem,4vw,3.5rem);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:1rem;
+  position:relative;z-index:1;
+}
+.footer-brand{display:flex;align-items:center;gap:8px;}
+.footer-logo{
+  width:28px;height:28px;border-radius:8px;
+  background:linear-gradient(135deg,var(--p2),var(--p));
+  display:flex;align-items:center;justify-content:center;font-size:13px;
+}
+.footer-name{
+  font-family:'Bricolage Grotesque',sans-serif;
+  font-weight:600;font-size:15px;color:var(--text);
+}
+.footer-name span{color:var(--p);}
+.footer-meta{font-size:11.5px;color:var(--text3);margin-top:3px;}
+.footer-right{text-align:right;}
+.footer-copy{font-size:11.5px;color:var(--text3);}
+.footer-copy strong{color:var(--text2);}
+
+/* ── ANIM ──────────────────────────────────────────── */
+@keyframes slide-up{
+  from{opacity:0;transform:translateY(22px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.reveal{opacity:0;transform:translateY(20px);transition:opacity .6s,transform .6s;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="#" class="nav-brand">
+    <div class="nav-logo-wrap">
+      <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="38" height="38" rx="10" fill="url(#lg1)"/>
+        <path d="M19 8L27 12V20C27 24.4183 23.4183 28 19 28C14.5817 28 11 24.4183 11 20V12L19 8Z" fill="white" fill-opacity="0.15" stroke="white" stroke-opacity="0.5" stroke-width="1.5"/>
+        <path d="M15.5 19.5L17.5 21.5L22.5 16.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <defs>
+          <linearGradient id="lg1" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#7c3aed"/>
+            <stop offset="1" stop-color="#a78bfa"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="logo-ring"></div>
+    </div>
+    <span class="nav-wordmark">Fake<span>Shield</span></span>
+  </a>
+  <div class="nav-right">
+    <div class="nav-links">
+      <a href="#detector" class="nav-link">Detector</a>
+      <a href="#how" class="nav-link">How it works</a>
+    </div>
+    <span class="nav-pill">SDG 16</span>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">☀️</button>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-orb1"></div>
+  <div class="hero-orb2"></div>
+  <div class="hero-orb3"></div>
+  <div class="hero-content">
+    <div class="hero-badge">
+      <span class="badge-live"><span class="badge-dot"></span>Live AI</span>
+      Powered by Claude · SDG 16 · Spring 2025–26
+    </div>
+    <h1>
+      Don't believe<br/>
+      <span class="h1-gradient">everything you read.</span>
+    </h1>
+    <p class="hero-sub">
+      FakeShield uses AI to instantly analyze news headlines and article snippets — detecting misinformation, rating credibility, and telling you exactly what to do next.
+    </p>
+    <div class="hero-actions">
+      <a href="#detector" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Analyze a headline
+      </a>
+      <a href="#how" class="btn-ghost">How it works →</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat">
+        <div class="hstat-n">3.6B</div>
+        <div class="hstat-l">People affected yearly</div>
+      </div>
+      <div class="hstat-divider"></div>
+      <div class="hstat">
+        <div class="hstat-n">6×</div>
+        <div class="hstat-l">Faster than real news</div>
+      </div>
+      <div class="hstat-divider"></div>
+      <div class="hstat">
+        <div class="hstat-n">SDG 16</div>
+        <div class="hstat-l">Justice & Institutions</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── DETECTOR ── -->
+<section class="section" id="detector">
+  <div class="reveal">
+    <div class="section-eyebrow"><span class="eyebrow-line"></span>AI Detector</div>
+    <h2 class="section-title">Paste any headline.<br/>Get the truth instantly.</h2>
+    <p class="section-sub">Our AI examines language patterns, logical consistency, and credibility signals — delivering a verdict in seconds.</p>
+  </div>
+  <div class="d-card reveal">
+    <div class="d-card-header">
+      <div class="d-header-left">
+        <div class="d-header-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        </div>
+        <div>
+          <div class="d-header-title">Credibility Analyzer</div>
+          <div class="d-header-sub">Real-time misinformation detection</div>
+        </div>
+      </div>
+      <span class="d-model-badge">claude-sonnet</span>
+    </div>
+    <div class="d-body">
+      <textarea id="newsInput" placeholder="Paste a news headline or article snippet here…" oninput="updateChar()"></textarea>
+      <div class="chips-label">Try an example →</div>
+      <div class="chips-row">
+        <span class="chip" onclick="setEx('Scientists confirm drinking 10 cups of coffee daily cures all cancers, WHO report says')">☕ Coffee cures cancer</span>
+        <span class="chip" onclick="setEx('India successfully launches its first solar-powered satellite into orbit')">🛰️ India solar satellite</span>
+        <span class="chip" onclick="setEx('Government secretly adding mind-control chemicals to tap water since 1999, leaked documents reveal')">🧪 Mind-control water</span>
+        <span class="chip" onclick="setEx('New study finds regular exercise reduces heart disease risk by up to 35%')">❤️ Exercise & heart</span>
+      </div>
+      <div class="d-footer">
+        <span class="char-ct" id="charCount">0 characters</span>
+        <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          Analyze
+        </button>
+      </div>
+    </div>
+    <div id="resultArea"></div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="hiw" id="how">
+  <div class="hiw-inner">
+    <div class="reveal">
+      <div class="section-eyebrow"><span class="eyebrow-line"></span>Process</div>
+      <h2 class="section-title">Four steps to clarity.</h2>
+      <p class="section-sub">FakeShield's AI pipeline analyzes text at multiple layers to deliver a reliable credibility verdict.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-n">01</div>
+        <div class="step-icon">📋</div>
+        <div class="step-title">Input the news</div>
+        <div class="step-desc">Paste any headline, tweet, or snippet. Works with as little as one sentence.</div>
+      </div>
+      <div class="step reveal">
+        <div class="step-n">02</div>
+        <div class="step-icon">🧠</div>
+        <div class="step-title">AI analysis</div>
+        <div class="step-desc">Claude AI examines language, sensationalism, logic, and factual plausibility.</div>
+      </div>
+      <div class="step reveal">
+        <div class="step-n">03</div>
+        <div class="step-icon">📊</div>
+        <div class="step-title">Credibility score</div>
+        <div class="step-desc">Get a 0–100 score, red flag breakdown, and clear AI reasoning.</div>
+      </div>
+      <div class="step reveal">
+        <div class="step-n">04</div>
+        <div class="step-icon">🚨</div>
+        <div class="step-title">Act with confidence</div>
+        <div class="step-desc">Know whether to trust, verify, or report — with full explanation.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SDG ── -->
+<section class="sdg-section">
+  <div class="reveal">
+    <div class="section-eyebrow"><span class="eyebrow-line"></span>Mission</div>
+    <h2 class="section-title">Built for a just world.</h2>
+    <p class="section-sub" style="margin-bottom:2.2rem;">Directly addressing the UN Sustainable Development Goal 16 — promoting peaceful, just, and inclusive societies.</p>
+  </div>
+  <div class="sdg-card reveal">
+    <div class="sdg-icon">⚖️</div>
+    <div class="sdg-body">
+      <h3>SDG 16 — Peace, Justice &amp; Strong Institutions</h3>
+      <p>Misinformation erodes democratic institutions, fuels social conflict, and undermines justice. By giving every citizen an accessible AI tool to detect fake news, FakeShield contributes directly to SDG 16's vision of transparent, accountable, and inclusive societies.</p>
+      <div class="sdg-tags">
+        <span class="sdg-tag">Access to information</span>
+        <span class="sdg-tag">Reduce violence</span>
+        <span class="sdg-tag">Accountable institutions</span>
+        <span class="sdg-tag">Inclusive societies</span>
+        <span class="sdg-tag">Anti-corruption</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS ── -->
+<section class="stats-sec">
+  <div class="stats-inner">
+    <div class="reveal">
+      <div class="section-eyebrow"><span class="eyebrow-line"></span>The Problem</div>
+      <h2 class="section-title">Misinformation by numbers.</h2>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card reveal">
+        <div class="stat-val sc-r">86%</div>
+        <div class="stat-desc">of people have been misled by fake news at least once in their lives</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-val sc-a">6×</div>
+        <div class="stat-desc">faster — how quickly false news spreads vs true news on social media</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-val sc-p">3.6B</div>
+        <div class="stat-desc">people affected by misinformation campaigns globally every year</div>
+      </div>
+      <div class="stat-card reveal">
+        <div class="stat-val sc-g">70%</div>
+        <div class="stat-desc">reduction in misinformation exposure possible with AI-powered detection</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div>
+    <div class="footer-brand">
+      <div class="footer-logo">🛡️</div>
+      <div class="footer-name">Fake<span>Shield</span></div>
+    </div>
+    <div class="footer-meta">AI Misinformation Detector · SDG 16 · ESD Semester 6</div>
+  </div>
+  <div class="footer-right">
+    <div class="footer-copy">© 2026 <strong>Samanwita</strong> · Spring 2025–26</div>
+    <div class="footer-copy" style="margin-top:3px;">Built with Claude AI · Anthropic</div>
+  </div>
+</footer>
+
+<script>
+/* ── THEME ── */
+function toggleTheme(){
+  const d=document.documentElement;
+  const light=d.getAttribute('data-theme')==='light';
+  d.setAttribute('data-theme',light?'dark':'light');
+  document.getElementById('themeBtn').textContent=light?'☀️':'🌙';
+}
+
+/* ── SCROLL REVEAL ── */
+const obs=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');}});
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach((el,i)=>{
+  el.style.transitionDelay=(i%4)*.08+'s';
+  obs.observe(el);
+});
+
+/* ── DETECTOR ── */
+function setEx(t){
+  document.getElementById('newsInput').value=t;
+  updateChar();
+  document.getElementById('newsInput').focus();
+}
+function updateChar(){
+  const l=document.getElementById('newsInput').value.length;
+  document.getElementById('charCount').textContent=l+' character'+(l!==1?'s':'');
+}
+function barColor(s){return s>=70?'var(--green)':s>=40?'var(--amber)':'var(--red)';}
+function verdictClass(v){
+  const l=v.toLowerCase();
+  if(l.includes('real')||l.includes('credible')||l.includes('true'))return'vp-real';
+  if(l.includes('fake')||l.includes('false'))return'vp-fake';
+  if(l.includes('mislead'))return'vp-mis';
+  return'vp-un';
+}
+function actionClass(a){
+  const l=a.toLowerCase();
+  if(l.includes('safe')||l.includes('trust')||l.includes('share')||l.includes('reliable'))return'ra-safe';
+  if(l.includes('caution')||l.includes('verify')||l.includes('check')||l.includes('cross'))return'ra-caution';
+  if(l.includes('avoid')||l.includes('do not')||l.includes('report')||l.includes('flag'))return'ra-danger';
+  return'ra-neutral';
+}
+
+async function analyze(){
+  const text=document.getElementById('newsInput').value.trim();
+  if(!text){document.getElementById('newsInput').focus();return;}
+  const btn=document.getElementById('analyzeBtn');
+  btn.disabled=true;
+  const ra=document.getElementById('resultArea');
+  ra.style.display='block';
+  ra.innerHTML=`<div class="r-divider"></div><div class="r-loading"><div class="spinner"></div><div class="r-loading-text">Analyzing credibility<span class="r-loading-dots"><span>.</span><span>.</span><span>.</span></span></div></div>`;
+  const prompt=`You are FakeShield, an AI credibility analyzer for SDG 16 (Peace, Justice & Strong Institutions).
+Analyze this news text: "${text}"
+Respond ONLY in valid JSON:
+{"verdict":"one of: Real/Credible, Likely Fake, Misleading, Unverifiable","credibility_score":<integer 0-100>,"analysis":"<2-3 sentence explanation>","red_flags":"<red flags found, or None detected>","recommended_action":"<one clear action starting with a verb>"}
+Return only the JSON. No markdown, no backticks.`;
+  try{
+    const res=await fetch('/api/analyze',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text})
+    });
+    const r=await res.json();
+    if(r.error)throw new Error(r.error);
+    const s=Math.min(100,Math.max(0,r.credibility_score));
+    ra.innerHTML=`<div class="r-divider"></div><div class="r-inner">
+      <div class="verdict-row">
+        <span class="verdict-pill ${verdictClass(r.verdict)}">${r.verdict}</span>
+        <div class="score-block">
+          <span class="score-label">Credibility score</span>
+          <span class="score-val" style="color:${barColor(s)}">${s}<span style="font-size:14px;color:var(--text3)">/100</span></span>
+        </div>
+      </div>
+      <div class="bar-wrap">
+        <div class="bar-track"><div class="bar-fill" id="bfill" style="width:0%;background:${barColor(s)}"></div></div>
+      </div>
+      <div class="r-grid">
+        <div class="r-box"><div class="r-box-label">Analysis</div><div class="r-box-text">${r.analysis}</div></div>
+        <div class="r-box"><div class="r-box-label">Red flags / trust signals</div><div class="r-box-text">${r.red_flags}</div></div>
+      </div>
+      <div class="r-action-wrap">
+        <div class="r-box-label" style="margin-bottom:8px">Recommended action</div>
+        <span class="r-action ${actionClass(r.recommended_action)}">→ ${r.recommended_action}</span>
+      </div>
+    </div>`;
+    setTimeout(()=>{const f=document.getElementById('bfill');if(f)f.style.width=s+'%';},80);
+  }catch(e){
+    ra.innerHTML=`<div class="r-divider"></div><div class="r-inner"><p style="color:var(--red);font-size:14px;">⚠ Something went wrong. Please try again.</p></div>`;
+  }
+  btn.disabled=false;
+}
+</script>
+</body>
+</html>
