@@ -8,11 +8,11 @@ export default async function handler(req, res) {
   const { text } = req.body;
   if (!text || !text.trim()) return res.status(400).json({ error: 'No text provided' });
 
-  const prompt = `You are FakeShield, an AI credibility analyzer for SDG 16 (Peace, Justice & Strong Institutions).
+  const prompt = `You are FakeShield, an AI credibility analyzer for SDG 16.
 Analyze this news text: "${text.trim()}"
 Respond ONLY in valid JSON:
-{"verdict":"one of: Real/Credible, Likely Fake, Misleading, Unverifiable","credibility_score":<integer 0-100>,"analysis":"<2-3 sentence explanation>","red_flags":"<red flags found, or None detected>","recommended_action":"<one clear action starting with a verb>"}
-Return only the JSON. No markdown, no backticks.`;
+{"verdict":"one of: Real/Credible, Likely Fake, Misleading, Unverifiable","credibility_score":<integer 0-100>,"analysis":"<2-3 sentence explanation>","red_flags":"<red flags or None detected>","recommended_action":"<one clear action>"}
+Return only JSON. No markdown, no backticks.`;
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -28,13 +28,13 @@ Return only the JSON. No markdown, no backticks.`;
     });
 
     const data = await response.json();
-    if (data.error) return res.status(500).json({ error: data.error.message });
+    if (data.error) return res.status(500).json({ error: 'Google API Error: ' + data.error.message + ' | Code: ' + data.error.code });
 
     const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const clean = raw.replace(/```json|```/g, '').trim();
     const result = JSON.parse(clean);
     return res.status(200).json(result);
   } catch (err) {
-    return res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    return res.status(500).json({ error: 'Exception: ' + err.message });
   }
 }
